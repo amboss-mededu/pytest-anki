@@ -22,11 +22,15 @@ classifiers = [
     "Intended Audience :: Developers",
 ]
 # TODO: Make selenium optional
+# Lower bounds only: the plugin is consumed alongside whatever pytest, pytest-qt,
+# and selenium an add-on's own test environment pins. selenium 4.6 is the first
+# release that ships Selenium Manager, which resolves the chromedriver matching
+# the Chromium version of the running Anki (see AnkiSession.run_with_chrome_driver).
 dependencies = [
-    "pytest~=6.2.5",
-    "pytest-qt~=4.4.0",
-    "selenium>=3.141.0,<4",
-    "packaging~=21.3",
+    "pytest>=6.2.5",
+    "pytest-qt>=4.4.0",
+    "selenium>=4.6.0",
+    "packaging>=21.3",
     "aqt>=2.1.54",
     "anki>=2.1.54",
 ]
@@ -75,9 +79,9 @@ qt6-2411 = [
 ]
 
 recommended-plugins = [
-    "pytest-xvfb~=3.1.1",
-    "pytest-xdist~=2.5.0",
-    "pytest-forked~=1.4.0",
+    "pytest-xvfb>=3.1.1",
+    "pytest-xdist>=2.5.0",
+    "pytest-forked>=1.4.0",
 ]
 
 [dependency-groups]
