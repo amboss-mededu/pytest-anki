@@ -139,6 +139,9 @@ def custom_init_factory(post_ui_setup_callback: PostUISetupCallbackType):
         aqt.mw = main_window
         main_window.app = app
         main_window.pm = profileManager
+        # 25.02+ reads it on every state change; setattr, since aqt before
+        # that declares no such attribute
+        setattr(main_window, "fullscreen", False)
         main_window.safeMode = False  # disable safe mode, of no use to us
         main_window.setupUI()
 
