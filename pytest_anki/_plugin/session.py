@@ -28,6 +28,7 @@
 #
 # Any modifications to this file must keep this entire header intact.
 
+import os
 import re
 from contextlib import contextmanager
 from types import ModuleType
@@ -43,6 +44,7 @@ from typing import (
     Tuple,
     Union,
 )
+from unittest import mock
 
 from aqt.qt import QThreadPool, QTimer, QWebEngineProfile
 from selenium import webdriver
@@ -133,6 +135,7 @@ class AnkiSession:
 
     @property
     def chromium_version(self) -> str:
+        """Version of the Chromium that QtWebEngine runs, e.g. '102.0.5005.177'"""
         user_agent = QWebEngineProfile.defaultProfile().httpUserAgent()
         match = re.match(r".*Chrome/(.+)\s+.*", user_agent)
         if match is None:
@@ -383,11 +386,7 @@ class AnkiSession:
 
         def test_wrapper() -> Optional[bool]:
             if not self._chrome_driver:
-                options = webdriver.ChromeOptions()
-                options.add_experimental_option(
-                    "debuggerAddress", f"127.0.0.1:{self._web_debugging_port}"
-                )
-                self._chrome_driver = webdriver.Chrome(options=options)
+                self._chrome_driver = self._create_chrome_driver()
 
             if web_view_title:
                 self._switch_chrome_driver_to_web_view(
@@ -398,6 +397,35 @@ class AnkiSession:
 
         with self._allow_selenium_to_detect_anki():
             return self.run_in_thread_and_wait(test_wrapper, timeout=timeout)
+
+    def _create_chrome_driver(self) -> webdriver.Chrome:
+        """Attach a chromedriver to Anki's web views over the remote
+        debugging port
+
+        The driver has to match the Chromium that QtWebEngine runs, not the
+        Chrome installed on the machine, so the options name that Chromium's
+        major and leave the driver to Selenium Manager (selenium 4.6+), which
+        downloads and caches it: drivers up to 114 come from the legacy
+        chromedriver storage, later ones from Chrome for Testing. The browser
+        Selenium Manager finds alongside is never launched, since the driver
+        attaches to the running Anki; without SE_AVOID_BROWSER_DOWNLOAD it
+        would still download a matching Chrome for Testing build when the
+        installed Chrome differs, so that is switched off unless the caller
+        set it.
+        """
+        options = webdriver.ChromeOptions()
+        options.add_experimental_option(
+            "debuggerAddress", f"127.0.0.1:{self._web_debugging_port}"
+        )
+        options.browser_version = self.chromium_version.split(".")[0]
+
+        environment = {
+            "SE_AVOID_BROWSER_DOWNLOAD": os.environ.get(
+                "SE_AVOID_BROWSER_DOWNLOAD", "true"
+            )
+        }
+        with mock.patch.dict(os.environ, environment):
+            return webdriver.Chrome(options=options)
 
     def reset_chrome_driver(self):
         if not self._chrome_driver:
