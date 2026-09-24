@@ -151,11 +151,14 @@ conflicts = [
     ],
 ]
 
+# The package with its data files (py.typed, anki-current.json). An include
+# list naming only the data files would leave the modules out of the wheel,
+# which an editable install hides.
 [tool.hatch.build.targets.sdist]
-include = ["pytest_anki/py.typed", "pytest_anki/anki-current.json"]
+packages = ["pytest_anki"]
 
 [tool.hatch.build.targets.wheel]
-include = ["pytest_anki/py.typed", "pytest_anki/anki-current.json"]
+packages = ["pytest_anki"]
 
 [build-system]
 requires = ["hatchling"]
