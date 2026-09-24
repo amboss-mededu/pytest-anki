@@ -39,8 +39,8 @@ from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple
 from unittest import mock
 
 from anki.errors import BackendIOError
+from aqt.qt import qInstallMessageHandler
 from packaging.version import Version
-from PyQt6.QtCore import qInstallMessageHandler
 
 from .anki import (
     AnkiStateUpdate,
