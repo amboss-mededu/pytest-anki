@@ -48,6 +48,8 @@ from unittest import mock
 
 from aqt.qt import QThreadPool, QTimer, QWebEngineProfile
 from selenium import webdriver
+from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.common.driver_finder import DriverFinder
 
 from .addons import ConfigPaths, create_addon_config
 from .anki import (
@@ -96,6 +98,7 @@ class AnkiSession:
         self._qtbot = qtbot
         self._web_debugging_port = web_debugging_port
         self._chrome_driver: Optional[webdriver.Chrome] = None
+        self._chrome_driver_path: Optional[str] = None
 
     # Key session properties ####
 
@@ -395,6 +398,12 @@ class AnkiSession:
 
             return test_function(self._chrome_driver)
 
+        if self._chrome_driver is None and self._chrome_driver_path is None:
+            # Resolving the driver may download it or, when Selenium Manager's
+            # version lookup stalls, take longer than the timeout below, so it
+            # happens ahead of the timed section, on the calling thread
+            self._chrome_driver_path = self._resolve_chrome_driver_path()
+
         with self._allow_selenium_to_detect_anki():
             return self.run_in_thread_and_wait(test_wrapper, timeout=timeout)
 
@@ -413,19 +422,33 @@ class AnkiSession:
         installed Chrome differs, so that is switched off unless the caller
         set it.
         """
+        if self._chrome_driver_path is None:
+            self._chrome_driver_path = self._resolve_chrome_driver_path()
+        return webdriver.Chrome(
+            service=ChromeService(executable_path=self._chrome_driver_path),
+            options=self._chrome_driver_options(),
+        )
+
+    def _chrome_driver_options(self) -> webdriver.ChromeOptions:
         options = webdriver.ChromeOptions()
         options.add_experimental_option(
             "debuggerAddress", f"127.0.0.1:{self._web_debugging_port}"
         )
         options.browser_version = self.chromium_version.split(".")[0]
+        return options
 
+    def _resolve_chrome_driver_path(self) -> str:
+        """Let Selenium Manager find (and if needed download) the driver for
+        Anki's Chromium, the way webdriver.Chrome would, but separately from
+        starting it, so the network round trip stays out of any timed wait"""
         environment = {
             "SE_AVOID_BROWSER_DOWNLOAD": os.environ.get(
                 "SE_AVOID_BROWSER_DOWNLOAD", "true"
             )
         }
         with mock.patch.dict(os.environ, environment):
-            return webdriver.Chrome(options=options)
+            finder = DriverFinder(ChromeService(), self._chrome_driver_options())
+            return finder.get_driver_path()
 
     def reset_chrome_driver(self):
         if not self._chrome_driver:
