@@ -200,12 +200,25 @@ class AnkiSession:
     def install_deck(self, path: PathLike) -> int:
         """Install deck from specified .apkg file, returning deck ID"""
         from anki.decks import DeckId
-        from anki.importing.apkg import AnkiPackageImporter
 
         old_ids = set(self._get_deck_ids())
 
-        importer = AnkiPackageImporter(col=self.collection, file=str(path))
-        importer.run()
+        try:
+            from anki.importing.apkg import AnkiPackageImporter
+        except ImportError:  # Anki 26.09 dropped the legacy importers
+            from anki.collection import (
+                ImportAnkiPackageOptions,
+                ImportAnkiPackageRequest,
+            )
+
+            self.collection.import_anki_package(
+                ImportAnkiPackageRequest(
+                    package_path=str(path), options=ImportAnkiPackageOptions()
+                )
+            )
+        else:
+            importer = AnkiPackageImporter(col=self.collection, file=str(path))
+            importer.run()
 
         new_ids = set(self._get_deck_ids())
 
