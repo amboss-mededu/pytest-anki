@@ -41,6 +41,7 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Set,
     Tuple,
     Union,
 )
@@ -202,6 +203,8 @@ class AnkiSession:
         from anki.decks import DeckId
 
         old_ids = set(self._get_deck_ids())
+        # Decks of the imported cards, for an import that creates no deck
+        imported_ids: Set[int] = set()
 
         try:
             from anki.importing.apkg import AnkiPackageImporter
@@ -211,16 +214,21 @@ class AnkiSession:
                 ImportAnkiPackageRequest,
             )
 
-            self.collection.import_anki_package(
+            # Unlike the legacy importer, this merges a deck into an existing
+            # one of the same name, such as Default
+            result = self.collection.import_anki_package(
                 ImportAnkiPackageRequest(
                     package_path=str(path), options=ImportAnkiPackageOptions()
                 )
             )
+            for note in (*result.log.new, *result.log.updated, *result.log.duplicate):
+                for card_id in self.collection.card_ids_of_note(note.id):
+                    imported_ids.add(self.collection.get_card(card_id).did)
         else:
             importer = AnkiPackageImporter(col=self.collection, file=str(path))
             importer.run()
 
-        new_ids = set(self._get_deck_ids())
+        new_ids = set(self._get_deck_ids()) - old_ids or imported_ids
 
         def highest_level_did(dids: Iterable[int]) -> int:
             return min(
@@ -229,7 +237,7 @@ class AnkiSession:
             )
 
         # deck IDs are strings on <=2.1.26
-        deck_id = int(highest_level_did(new_ids - old_ids))
+        deck_id = int(highest_level_did(new_ids))
 
         return deck_id
 
