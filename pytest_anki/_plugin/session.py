@@ -222,7 +222,7 @@ class AnkiSession:
                 )
             )
             for note in (*result.log.new, *result.log.updated, *result.log.duplicate):
-                for card_id in self.collection.card_ids_of_note(note.id):
+                for card_id in self.collection.card_ids_of_note(note.id.nid):
                     imported_ids.add(self.collection.get_card(card_id).did)
         else:
             importer = AnkiPackageImporter(col=self.collection, file=str(path))
